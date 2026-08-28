@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#121a28" />
+  <title>Bleed Sharmanka · Rhythm Circle Editor</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand-mark" aria-hidden="true">◉</div>
+    <div>
+      <p class="eyebrow">BLEED → CARDBOARD SHARMANKA</p>
+      <h1>Rhythm circle editor</h1>
+      <p class="subtitle">Click a pattern, hear it, and print a physical circle.</p>
+    </div>
+    <div class="header-status"><span class="status-dot"></span> local-first</div>
+  </header>
+
+  <main class="app-shell">
+    <section class="panel intro-panel">
+      <div>
+        <p class="eyebrow accent">MVP / RHYTHM LAB</p>
+        <h2>One loop. One circle. Four possible voices.</h2>
+        <p class="muted">The editor stores rhythmic onsets, not pitched notes. Each active cell becomes a mark on the matching ring.</p>
+      </div>
+      <div class="intro-actions">
+        <button id="playButton" class="button primary">▶ Play</button>
+        <button id="stopButton" class="button ghost">■ Stop</button>
+        <button id="generateButton" class="button accent-button">Generate circle</button>
+      </div>
+    </section>
+
+    <div id="globalMessage" class="message" role="status" aria-live="polite"></div>
+
+    <section class="workspace-grid">
+      <div class="left-column">
+        <section class="panel controls-panel">
+          <div class="section-heading"><div><p class="eyebrow">01 / PATTERN</p><h2>Timing grid</h2></div><span id="cycleSummary" class="chip">4/4 · 1 bar</span></div>
+          <div class="control-grid">
+            <label>Title<input id="titleInput" type="text" value="Untitled rhythm" /></label>
+            <label>BPM<input id="bpmInput" type="number" min="30" max="300" value="120" /></label>
+            <label>Beats / bar<input id="numeratorInput" type="number" min="1" max="32" value="4" /></label>
+            <label>Beat value<select id="denominatorInput"><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option><option value="16">16</option></select></label>
+            <label>Grid<select id="gridInput"></select></label>
+            <label>Loop length<select id="barsInput"><option value="auto" selected>Auto / close cycle</option><option value="1">1 bar</option><option value="2">2 bars</option><option value="3">3 bars</option><option value="4">4 bars</option><option value="8">8 bars</option></select></label>
+          </div>
+          <p id="gridHint" class="field-hint"></p>
+        </section>
+
+        <section class="panel roll-panel">
+          <div class="section-heading"><div><p class="eyebrow">02 / PIANO-ROLL FEEL</p><h2>Click to toggle onsets</h2></div><button id="addVoiceButton" class="button small ghost">+ Add voice</button></div>
+          <div class="roll-scroller"><div id="roll" class="roll" aria-label="Rhythm grid"></div></div>
+          <div class="roll-footer"><span><i class="legend-swatch active"></i> hit</span><span><i class="legend-swatch"></i> empty</span><span id="stepCount"></span></div>
+        </section>
+
+        <section class="panel utility-panel">
+          <div class="utility-group"><p class="eyebrow">EDIT</p><div class="button-row"><button id="clearButton" class="button ghost">Clear</button><button id="undoButton" class="button ghost">Undo</button></div></div>
+          <div class="utility-group"><p class="eyebrow">PROJECT FILE</p><div class="button-row"><button id="saveButton" class="button ghost">Save JSON</button><button id="loadButton" class="button ghost">Load JSON</button><input id="loadFileInput" type="file" accept="application/json,.json" hidden /></div></div>
+        </section>
+      </div>
+
+      <aside class="right-column">
+        <section class="panel settings-panel">
+          <div class="section-heading"><div><p class="eyebrow">03 / CIRCLE</p><h2>Physical output</h2></div><span class="chip">millimetres</span></div>
+          <div class="control-grid compact">
+            <label>Diameter<input id="circleDiameterInput" type="number" min="30" max="500" step="0.1" value="190" /></label>
+            <label>Paper<select id="paperInput"><option value="A4" selected>A4</option><option value="A3">A3</option></select></label>
+            <label>Orientation<select id="orientationInput"><option value="portrait" selected>Portrait</option><option value="landscape">Landscape</option></select></label>
+            <label>Margins<input id="marginInput" type="number" min="0" max="50" step="0.5" value="10" /></label>
+            <label>Center hole<input id="centerHoleInput" type="number" min="0.5" max="50" step="0.1" value="6" /></label>
+            <label>Peg mark / hole<input id="holeDiameterInput" type="number" min="0.5" max="30" step="0.1" value="3" /></label>
+            <label>Ring count<input id="ringCountInput" type="number" min="1" max="8" value="2" /></label>
+            <label>Ring pitch<input id="ringPitchInput" type="number" min="0.5" max="30" step="0.1" value="8" /></label>
+            <label>Start angle<input id="startAngleInput" type="number" min="-360" max="360" step="1" value="0" /></label>
+            <label>Direction<select id="directionInput"><option value="clockwise" selected>Clockwise</option><option value="counterclockwise">Counterclockwise</option></select></label>
+            <label>Mode<select id="modeInput"><option value="holes" selected>Holes</option><option value="marks">Marks</option></select></label>
+          </div>
+          <div class="check-grid"><label><input id="barLabelsInput" type="checkbox" checked /> Bar labels</label><label><input id="beatLabelsInput" type="checkbox" checked /> Beat labels</label><label><input id="subdivisionLabelsInput" type="checkbox" /> Subdivision ticks</label><label><input id="voiceLabelsInput" type="checkbox" checked /> Voice legend</label></div>
+          <div class="voice-settings" id="voiceSettings"></div>
+          <div id="warnings" class="warnings" aria-live="polite"></div>
+        </section>
+
+        <section class="panel preview-panel">
+          <div class="section-heading"><div><p class="eyebrow">04 / PREVIEW</p><h2>Print layout</h2></div><span id="fitStatus" class="fit-status">Ready</span></div>
+          <div id="svgPreview" class="svg-preview"></div>
+          <div class="export-row"><button id="downloadSvgButton" class="button ghost">Download SVG</button><button id="downloadPdfButton" class="button primary">Download PDF</button></div>
+          <p class="print-note">PDF uses real millimetres. Print with <strong>Actual size / 100%</strong>; never “Fit to page”.</p>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="site-footer">Static browser app · no rhythm data leaves your device · <a href="https://github.com/digitdrator/bleed-sharmanka" target="_blank" rel="noreferrer">GitHub repository</a></footer>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

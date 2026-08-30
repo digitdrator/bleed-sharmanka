@@ -65,6 +65,11 @@ export function polarPoint(cx, cy, radius, degrees) {
   return { x: cx + radius * Math.cos(radians), y: cy + radius * Math.sin(radians) };
 }
 
+export function chordDistance(radius, sectors) {
+  const count = Math.max(1, Number(sectors) || 1);
+  return count > 1 ? 2 * Number(radius) * Math.sin(Math.PI / count) : Infinity;
+}
+
 export function formatStepLabel(index, gridId) {
   if (gridId === "triplet") return `${index + 1}T`;
   return String(index + 1);
@@ -82,14 +87,14 @@ export function calculateLayout({ paper = "A4", orientation = "portrait", circle
   return { ...page, cx, cy, radius, circleFits };
 }
 
-export function ringRadii({ radius, ringCount = 2, ringPitch = 8 }) {
+export function ringRadii({ radius, ringCount = 2, ringPitch = 8, trackInset = 8 }) {
   const count = Math.max(1, Number(ringCount) || 1);
   const pitch = Math.max(0.1, Number(ringPitch) || 8);
-  const outer = radius - 14 - (count - 1) * pitch;
-  return Array.from({ length: count }, (_, index) => outer + (count - 1 - index) * pitch);
+  const outer = radius - Math.max(0, Number(trackInset) || 0);
+  return Array.from({ length: count }, (_, index) => outer - index * pitch);
 }
 
-export function validateGeometry({ circleDiameter, margin, centerHole, holeDiameter, centerDotDiameter = 0.8, ringCount, ringPitch, paper, orientation }) {
+export function validateGeometry({ circleDiameter, margin, centerHole, holeDiameter, centerDotDiameter = 0.8, ringCount, ringPitch, trackInset = 8, paper, orientation }) {
   const errors = [];
   const warnings = [];
   const diameter = Number(circleDiameter);
@@ -97,16 +102,19 @@ export function validateGeometry({ circleDiameter, margin, centerHole, holeDiame
   const center = Number(centerHole);
   const hole = Number(holeDiameter);
   const centerDot = Number(centerDotDiameter);
+  const inset = Number(trackInset);
   if (!(diameter > 0)) errors.push("Circle diameter must be greater than 0 mm.");
   if (!(safeMargin >= 0)) errors.push("Page margin cannot be negative.");
   if (!(center > 0 && center < diameter)) errors.push("Center hole must be smaller than the circle.");
   if (!(hole > 0 && hole < diameter / 2)) errors.push("Peg mark diameter is outside the usable range.");
   if (!(centerDot > 0 && centerDot < hole)) errors.push("Center dot must be smaller than the peg mark / hole.");
+  if (!(inset >= 0 && inset < diameter / 2)) errors.push("Track inset must leave room inside the circle.");
   if (!(Number(ringCount) >= 1 && Number(ringCount) <= 8)) errors.push("Ring count must be between 1 and 8.");
   if (!(Number(ringPitch) > 0)) errors.push("Ring pitch must be greater than 0 mm.");
   const layout = calculateLayout({ paper, orientation, circleDiameter: diameter, margin: safeMargin });
   if (!layout.circleFits) warnings.push(`${diameter} mm circle does not fit on ${paper} with ${safeMargin} mm margins.`);
-  const radii = ringRadii({ radius: layout.radius, ringCount, ringPitch });
+  const radii = ringRadii({ radius: layout.radius, ringCount, ringPitch, trackInset: inset });
   if (radii.some((r) => r <= center / 2 + hole / 2 + 2)) warnings.push("Rings are too close to the center hole or each other.");
+  if (radii.some((r) => r + hole / 2 > layout.radius - 0.5)) warnings.push("The outer track is too close to the circle edge for the selected mark size.");
   return { errors, warnings, layout, radii };
 }

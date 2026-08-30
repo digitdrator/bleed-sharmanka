@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   angleForTick,
   calculateLayout,
+  chordDistance,
   getBarTicks,
   getCycleTicks,
   getGridColumns,
@@ -42,7 +43,11 @@ test("layout and ring spacing stay in millimetres", () => {
   assert.equal(layout.width, 210);
   assert.equal(layout.height, 297);
   assert.equal(layout.circleFits, true);
-  assert.deepEqual(ringRadii({ radius: 95, ringCount: 2, ringPitch: 8 }), [81, 73]);
+  assert.deepEqual(ringRadii({ radius: 95, ringCount: 2, ringPitch: 8, trackInset: 6 }), [89, 81]);
+});
+
+test("sector spacing uses the actual chord distance", () => {
+  assert.ok(Math.abs(chordDistance(50, 4) - 70.710678) < 0.000001);
 });
 
 test("center dot is validated as a smaller mark", () => {

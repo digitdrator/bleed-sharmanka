@@ -4,6 +4,7 @@ import {
   TICKS_PER_QUARTER,
   angleForTick,
   calculateLayout,
+  chordDistance,
   getBarTicks,
   getCycleTicks,
   getGridColumns,
@@ -30,7 +31,7 @@ const initialState = {
     diameter: 190, paper: "A4", orientation: "portrait", margin: 10, centerHole: 6,
     holeDiameter: 3, centerDotDiameter: 0.8, ringCount: 2, ringPitch: 8, startAngle: 0, direction: "clockwise", mode: "holes"
   },
-  labels: { bars: true, beats: true, subdivisions: false, voices: true }
+  labels: { bars: true, beats: true, subdivisions: true, gridLines: true, noteRays: true, voices: true }
 };
 
 let state = clone(initialState);
@@ -181,20 +182,23 @@ function renderCircleSettings() {
   $("centerDotDiameterInput").value = state.circle.centerDotDiameter;
   $("ringCountInput").value = state.circle.ringCount;
   $("ringPitchInput").value = state.circle.ringPitch;
+  $("trackInsetInput").value = state.circle.trackInset;
   $("startAngleInput").value = state.circle.startAngle;
   $("directionInput").value = state.circle.direction;
   $("modeInput").value = state.circle.mode;
   $("barLabelsInput").checked = state.labels.bars;
   $("beatLabelsInput").checked = state.labels.beats;
   $("subdivisionLabelsInput").checked = state.labels.subdivisions;
+  $("gridLinesInput").checked = state.labels.gridLines;
+  $("noteRaysInput").checked = state.labels.noteRays;
   $("voiceLabelsInput").checked = state.labels.voices;
 }
 
 function buildWarnings() {
-  const validation = validateGeometry({ ...state.circle, circleDiameter: state.circle.diameter, centerHole: state.circle.centerHole, holeDiameter: state.circle.holeDiameter, centerDotDiameter: state.circle.centerDotDiameter, ringCount: state.circle.ringCount, ringPitch: state.circle.ringPitch });
+  const validation = validateGeometry({ ...state.circle, circleDiameter: state.circle.diameter, centerHole: state.circle.centerHole, holeDiameter: state.circle.holeDiameter, centerDotDiameter: state.circle.centerDotDiameter, ringCount: state.circle.ringCount, ringPitch: state.circle.ringPitch, trackInset: state.circle.trackInset });
   const warnings = [...validation.errors.map((text) => `<div class="warning error">${escapeHtml(text)}</div>`), ...validation.warnings.map((text) => `<div class="warning">${escapeHtml(text)}</div>`)];
-  const minimumSpacing = (2 * Math.PI * Math.min(...validation.radii)) / Math.max(1, columnCount());
-  if (minimumSpacing < Number(state.circle.holeDiameter)) warnings.push(`<div class="warning">The tightest adjacent marks are about ${minimumSpacing.toFixed(1)} mm apart; consider a coarser grid or smaller peg marks.</div>`);
+  const minimumSpacing = validation.radii.length ? Math.min(...validation.radii.map((radius) => chordDistance(radius, columnCount()))) : 0;
+  if (minimumSpacing < Number(state.circle.holeDiameter)) warnings.push(`<div class="warning">The tightest grid sectors are about ${minimumSpacing.toFixed(1)} mm apart center-to-center; consider a coarser grid or smaller peg marks.</div>`);
   $("warnings").innerHTML = warnings.join("");
   $("fitStatus").textContent = validation.errors.length ? "Check settings" : validation.layout.circleFits ? "Fits page" : "Does not fit";
   $("fitStatus").classList.toggle("bad", validation.errors.length > 0 || !validation.layout.circleFits);
@@ -221,7 +225,7 @@ function render() {
 function textSvg(text, x, y, size = 3, fill = "#334155", anchor = "middle", weight = 500) {
   return `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" font-family="Arial, sans-serif" font-size="${size}" font-weight="${weight}" text-anchor="${anchor}" fill="${fill}">${escapeXml(text)}</text>`;
 }
-function buildSvg(current, validation = validateGeometry({ ...current.circle, circleDiameter: current.circle.diameter, centerHole: current.circle.centerHole, holeDiameter: current.circle.holeDiameter, centerDotDiameter: current.circle.centerDotDiameter, ringCount: current.circle.ringCount, ringPitch: current.circle.ringPitch })) {
+function buildSvg(current, validation = validateGeometry({ ...current.circle, circleDiameter: current.circle.diameter, centerHole: current.circle.centerHole, holeDiameter: current.circle.holeDiameter, centerDotDiameter: current.circle.centerDotDiameter, ringCount: current.circle.ringCount, ringPitch: current.circle.ringPitch, trackInset: current.circle.trackInset })) {
   const layout = validation.layout;
   const radii = validation.radii;
   const cycle = getCycleTicks({ meter: current.meter, gridId: current.gridId, bars: current.bars });
@@ -235,8 +239,12 @@ function buildSvg(current, validation = validateGeometry({ ...current.circle, ci
     const tick = index * step;
     const isBar = tick % barTicks === 0;
     const isBeat = tick % beatTicks === 0;
-    if (!current.labels.subdivisions && !isBar && !isBeat) continue;
+    if (!current.labels.gridLines && !current.labels.subdivisions && !isBar && !isBeat) continue;
     const angle = angleForTick(tick, cycle, Number(current.circle.startAngle), current.circle.direction);
+    if (current.labels.gridLines) {
+      const gridEnd = polarPoint(layout.cx, layout.cy, layout.radius - 1, angle);
+      parts.push(`<line x1="${layout.cx.toFixed(2)}" y1="${layout.cy.toFixed(2)}" x2="${gridEnd.x.toFixed(2)}" y2="${gridEnd.y.toFixed(2)}" stroke="${isBar ? "#9aa7b5" : isBeat ? "#b5bec8" : "#d0d6dc"}" stroke-width="${isBar ? 0.45 : isBeat ? 0.3 : 0.18}"/>`);
+    }
     const outer = layout.radius - (isBar ? 1 : isBeat ? 3 : 5);
     const inner = layout.radius - 1;
     const a = polarPoint(layout.cx, layout.cy, outer, angle);
@@ -252,6 +260,7 @@ function buildSvg(current, validation = validateGeometry({ ...current.circle, ci
       const point = polarPoint(layout.cx, layout.cy, radius, angle);
       const markRadius = Number(current.circle.holeDiameter) / 2;
       const dotRadius = Number(current.circle.centerDotDiameter) / 2;
+      if (current.labels.noteRays) parts.push(`<line x1="${layout.cx.toFixed(2)}" y1="${layout.cy.toFixed(2)}" x2="${point.x.toFixed(2)}" y2="${point.y.toFixed(2)}" stroke="${COLORS[voiceIndex]}" stroke-opacity="0.34" stroke-width="0.45"/>`);
       parts.push(current.circle.mode === "holes"
         ? `<circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="${markRadius.toFixed(2)}" fill="#fffdf8" stroke="${COLORS[voiceIndex]}" stroke-width="0.6"/>`
         : `<circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="${markRadius.toFixed(2)}" fill="${COLORS[voiceIndex]}" stroke="#172235" stroke-width="0.25"/>`);
@@ -289,7 +298,7 @@ function pdfCircle(layout, cx, cy, radius) {
 function pdfLine(layout, x1, y1, x2, y2) { const a = pdfPoint(layout, x1, y1); const b = pdfPoint(layout, x2, y2); return `${a[0].toFixed(2)} ${a[1].toFixed(2)} m ${b[0].toFixed(2)} ${b[1].toFixed(2)} l S`; }
 function pdfText(layout, text, x, y, size = 8) { const p = pdfPoint(layout, x, y); return `BT /F1 ${size} Tf ${p[0].toFixed(2)} ${p[1].toFixed(2)} Td (${pdfEscape(text)}) Tj ET`; }
 function buildPdf(current) {
-  const validation = validateGeometry({ ...current.circle, circleDiameter: current.circle.diameter, centerHole: current.circle.centerHole, holeDiameter: current.circle.holeDiameter, centerDotDiameter: current.circle.centerDotDiameter, ringCount: current.circle.ringCount, ringPitch: current.circle.ringPitch });
+  const validation = validateGeometry({ ...current.circle, circleDiameter: current.circle.diameter, centerHole: current.circle.centerHole, holeDiameter: current.circle.holeDiameter, centerDotDiameter: current.circle.centerDotDiameter, ringCount: current.circle.ringCount, ringPitch: current.circle.ringPitch, trackInset: current.circle.trackInset });
   const layout = validation.layout;
   const radii = validation.radii;
   const cycle = getCycleTicks({ meter: current.meter, gridId: current.gridId, bars: current.bars });
@@ -303,8 +312,12 @@ function buildPdf(current) {
     const tick = index * step;
     const isBar = tick % barTicks === 0;
     const isBeat = tick % beatTicks === 0;
-    if (!current.labels.subdivisions && !isBar && !isBeat) continue;
+    if (!current.labels.gridLines && !current.labels.subdivisions && !isBar && !isBeat) continue;
     const angle = angleForTick(tick, cycle, Number(current.circle.startAngle), current.circle.direction);
+    if (current.labels.gridLines) {
+      const gridEnd = polarPoint(layout.cx, layout.cy, layout.radius - 1, angle);
+      content.push(isBar ? "0.60 0.65 0.71 RG 0.65 w" : isBeat ? "0.71 0.75 0.78 RG 0.45 w" : "0.82 0.84 0.86 RG 0.25 w", pdfLine(layout, layout.cx, layout.cy, gridEnd.x, gridEnd.y));
+    }
     const outer = layout.radius - (isBar ? 1 : isBeat ? 3 : 5);
     const a = polarPoint(layout.cx, layout.cy, outer, angle);
     const b = polarPoint(layout.cx, layout.cy, layout.radius - 1, angle);
@@ -319,6 +332,7 @@ function buildPdf(current) {
       const point = polarPoint(layout.cx, layout.cy, radius, angle);
       const markRadius = Number(current.circle.holeDiameter) / 2;
       const dotRadius = Number(current.circle.centerDotDiameter) / 2;
+      if (current.labels.noteRays) content.push("0.55 0.58 0.62 RG 0.45 w", pdfLine(layout, layout.cx, layout.cy, point.x, point.y));
       content.push(current.circle.mode === "holes" ? "1 1 1 rg 0.96 0.53 0.36 RG 0.7 w" : "0.96 0.53 0.36 rg 0.09 0.13 0.21 RG 0.3 w", pdfCircle(layout, point.x, point.y, markRadius), "B");
       content.push("0.09 0.13 0.21 rg", pdfCircle(layout, point.x, point.y, dotRadius), "f");
     });
@@ -398,10 +412,20 @@ function bindControls() {
   $("loadFileInput").addEventListener("change", async (event) => { const file = event.target.files?.[0]; if (!file) return; try { loadProject(JSON.parse(await file.text())); } catch { showMessage("Could not load JSON. Check the file format."); } event.target.value = ""; });
   $("downloadSvgButton").addEventListener("click", () => download(new Blob([buildSvg(state)], { type: "image/svg+xml" }), `${slug()}.svg`));
   $("downloadPdfButton").addEventListener("click", () => download(buildPdf(state), `${slug()}.pdf`));
-  const simpleFields = { titleInput: ["title"], bpmInput: ["bpm", Number], circleDiameterInput: ["circle", "diameter", Number], paperInput: ["circle", "paper"], orientationInput: ["circle", "orientation"], marginInput: ["circle", "margin", Number], centerHoleInput: ["circle", "centerHole", Number], holeDiameterInput: ["circle", "holeDiameter", Number], centerDotDiameterInput: ["circle", "centerDotDiameter", Number], ringCountInput: ["circle", "ringCount", Number], ringPitchInput: ["circle", "ringPitch", Number], startAngleInput: ["circle", "startAngle", Number], directionInput: ["circle", "direction"], modeInput: ["circle", "mode"] };
+  $("maximizeSpacingButton").addEventListener("click", () => {
+    const next = clone(state);
+    const count = Math.max(1, Number(next.circle.ringCount) || 1);
+    const minimumInnerRadius = Number(next.circle.centerHole) / 2 + Number(next.circle.holeDiameter) / 2 + 2;
+    next.circle.trackInset = Number(Math.max(1, Number(next.circle.holeDiameter) / 2 + 1).toFixed(1));
+    const maximumOuterRadius = Number(next.circle.diameter) / 2 - next.circle.trackInset;
+    if (count > 1) next.circle.ringPitch = Number(Math.min(80, Math.max(0.5, (maximumOuterRadius - minimumInnerRadius) / (count - 1))).toFixed(1));
+    setState(next);
+    showMessage("Spacing maximized for the current circle, rings and mark size.");
+  });
+  const simpleFields = { titleInput: ["title"], bpmInput: ["bpm", Number], circleDiameterInput: ["circle", "diameter", Number], paperInput: ["circle", "paper"], orientationInput: ["circle", "orientation"], marginInput: ["circle", "margin", Number], centerHoleInput: ["circle", "centerHole", Number], holeDiameterInput: ["circle", "holeDiameter", Number], centerDotDiameterInput: ["circle", "centerDotDiameter", Number], ringCountInput: ["circle", "ringCount", Number], ringPitchInput: ["circle", "ringPitch", Number], trackInsetInput: ["circle", "trackInset", Number], startAngleInput: ["circle", "startAngle", Number], directionInput: ["circle", "direction"], modeInput: ["circle", "mode"] };
   Object.entries(simpleFields).forEach(([id, path]) => $(id).addEventListener("change", (event) => { const next = clone(state); const hasConverter = typeof path.at(-1) === "function"; const converter = hasConverter ? path.at(-1) : String; const targetPath = hasConverter ? path.slice(0, -1) : path; const value = converter(event.target.value); if (targetPath.length === 1) next[targetPath[0]] = value; else next[targetPath[0]][targetPath[1]] = value; setState(next); }));
   ["numeratorInput", "denominatorInput", "gridInput", "barsInput"].forEach((id) => $(id).addEventListener("change", (event) => { const next = clone(state); const old = clone(state); if (id === "numeratorInput") next.meter.numerator = Number(event.target.value); if (id === "denominatorInput") next.meter.denominator = Number(event.target.value); if (id === "gridInput") next.gridId = event.target.value; if (id === "barsInput") next.bars = event.target.value === "auto" ? "auto" : Number(event.target.value); setState(remapEvents(old, next)); }));
-  [["barLabelsInput", "bars"], ["beatLabelsInput", "beats"], ["subdivisionLabelsInput", "subdivisions"], ["voiceLabelsInput", "voices"]].forEach(([id, key]) => $(id).addEventListener("change", (event) => { const next = clone(state); next.labels[key] = event.target.checked; setState(next); }));
+  [["barLabelsInput", "bars"], ["beatLabelsInput", "beats"], ["subdivisionLabelsInput", "subdivisions"], ["gridLinesInput", "gridLines"], ["noteRaysInput", "noteRays"], ["voiceLabelsInput", "voices"]].forEach(([id, key]) => $(id).addEventListener("change", (event) => { const next = clone(state); next.labels[key] = event.target.checked; setState(next); }));
 }
 
 populateControls();

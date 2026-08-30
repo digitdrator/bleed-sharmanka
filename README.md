@@ -23,8 +23,9 @@ npm test
 1. Set the meter, grid, loop length and BPM. BPM affects preview only; it does not change circle geometry.
 2. Rename voices and click cells in the rhythm roll. A second click removes an onset.
 3. Choose circle diameter, A4/A3 paper, ring geometry, start angle, direction and holes/marks mode.
-4. Click **Generate circle**, then download SVG or PDF.
-5. Print the PDF at **Actual size / 100%**, never “Fit to page”. Measure the included 100 mm check line before cutting cardboard.
+4. Use **Track inset** to control the distance from the outer edge to the outermost track. **Ring pitch** is the center-to-center distance between tracks. **Maximize spacing** calculates a dense-but-usable radial layout for the current diameter, ring count and peg mark size.
+5. Keep **Radial grid lines** and **Note-to-center rays** enabled when you want the printout fully ruled from the center. Then click **Generate circle** and download SVG or PDF.
+6. Print the PDF at **Actual size / 100%**, never “Fit to page”. Measure the included 100 mm check line before cutting cardboard.
 
 The default loop uses two voices and a 190 mm circle. Auto length closes the selected musical bar and grid together using an LCM calculation; this matters for triplets, dotted grids and shifted patterns.
 

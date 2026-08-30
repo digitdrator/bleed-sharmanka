@@ -8,7 +8,8 @@ import {
   getGridColumns,
   lcm,
   polarPoint,
-  ringRadii
+  ringRadii,
+  validateGeometry
 } from "../core.js";
 
 test("LCM closes the 32nd-note herta cycle over three 4/4 bars", () => {
@@ -42,4 +43,11 @@ test("layout and ring spacing stay in millimetres", () => {
   assert.equal(layout.height, 297);
   assert.equal(layout.circleFits, true);
   assert.deepEqual(ringRadii({ radius: 95, ringCount: 2, ringPitch: 8 }), [81, 73]);
+});
+
+test("center dot is validated as a smaller mark", () => {
+  const valid = validateGeometry({ circleDiameter: 190, margin: 10, centerHole: 6, holeDiameter: 3, centerDotDiameter: 0.8, ringCount: 2, ringPitch: 8, paper: "A4", orientation: "portrait" });
+  const invalid = validateGeometry({ circleDiameter: 190, margin: 10, centerHole: 6, holeDiameter: 3, centerDotDiameter: 3, ringCount: 2, ringPitch: 8, paper: "A4", orientation: "portrait" });
+  assert.equal(valid.errors.length, 0);
+  assert.match(invalid.errors.join(" "), /Center dot/);
 });

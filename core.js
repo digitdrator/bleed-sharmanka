@@ -89,17 +89,19 @@ export function ringRadii({ radius, ringCount = 2, ringPitch = 8 }) {
   return Array.from({ length: count }, (_, index) => outer + (count - 1 - index) * pitch);
 }
 
-export function validateGeometry({ circleDiameter, margin, centerHole, holeDiameter, ringCount, ringPitch, paper, orientation }) {
+export function validateGeometry({ circleDiameter, margin, centerHole, holeDiameter, centerDotDiameter = 0.8, ringCount, ringPitch, paper, orientation }) {
   const errors = [];
   const warnings = [];
   const diameter = Number(circleDiameter);
   const safeMargin = Number(margin);
   const center = Number(centerHole);
   const hole = Number(holeDiameter);
+  const centerDot = Number(centerDotDiameter);
   if (!(diameter > 0)) errors.push("Circle diameter must be greater than 0 mm.");
   if (!(safeMargin >= 0)) errors.push("Page margin cannot be negative.");
   if (!(center > 0 && center < diameter)) errors.push("Center hole must be smaller than the circle.");
   if (!(hole > 0 && hole < diameter / 2)) errors.push("Peg mark diameter is outside the usable range.");
+  if (!(centerDot > 0 && centerDot < hole)) errors.push("Center dot must be smaller than the peg mark / hole.");
   if (!(Number(ringCount) >= 1 && Number(ringCount) <= 8)) errors.push("Ring count must be between 1 and 8.");
   if (!(Number(ringPitch) > 0)) errors.push("Ring pitch must be greater than 0 mm.");
   const layout = calculateLayout({ paper, orientation, circleDiameter: diameter, margin: safeMargin });
